@@ -146,7 +146,7 @@ namespace USBMicRecorder
                     return;
                 }
                 lblCapture.Visible = true;
-                StartCapture(levelOnly: true);
+                StartCapture(levelOnly: true,AudioMode.ProductionMode);
                 btnRecord.Text = "録音停止";
                 isRecording = true;
             }
@@ -168,7 +168,7 @@ namespace USBMicRecorder
         {
             if (!isTesting)
             {
-                StartCapture(levelOnly: true);
+                StartCapture(levelOnly: true,AudioMode.TestMode);
                 btnTest.Text = "テスト停止";
                 isTesting = true;
             }
@@ -273,14 +273,25 @@ namespace USBMicRecorder
         /// 録音UIの有効/無効を切り替えます。
         /// </summary>
         /// <param name="enabled">True:有効、False：無効</param>
-        private void EnabledControls(bool enabled)
+        /// <param name="AudioClientShareMode">オーディオクライアントの共有モード</param>
+        private void EnabledControls(bool enabled, AudioMode mode)
         {
             // 録音開始前のUI更新
             tbVolume.Enabled = enabled;       // 録音中はボリューム調整不可
             cbDevices.Enabled = enabled;      // 録音中はデバイス変更不可
             btnBrowse.Enabled = enabled;      // 録音中は保存先変更不可
             txtSavePath.Enabled = enabled;    // 録音中は保存先変更不可
-            btnTest.Enabled = enabled;        // テスト録音中は無効化
+            btnTest.Enabled = mode == AudioMode.TestMode;
+            btnRecord.Enabled = mode == AudioMode.ProductionMode;
+        }
+
+        /// <summary>
+        /// オーディオクライアントの共有モードを定義します。
+        /// </summary>
+        private enum AudioMode
+        {
+            TestMode,
+            ProductionMode
         }
 
         /// <summary>
@@ -288,7 +299,7 @@ namespace USBMicRecorder
         /// </summary>
         /// <param name="levelOnly">録音レベル</param>
         // --- StartCapture ---
-        private void StartCapture(bool levelOnly)
+        private void StartCapture(bool levelOnly, AudioMode mode)
         {
             // 既存のキャプチャがあれば停止して解放
             var enumerator = new MMDeviceEnumerator();
@@ -304,7 +315,7 @@ namespace USBMicRecorder
             }
 
             // UIコントロールを無効化
-            EnabledControls(enabled: false);
+            EnabledControls(enabled: false,mode);
 
             // 録音開始
             capture.DataAvailable += (s, e) =>
@@ -402,7 +413,7 @@ namespace USBMicRecorder
                 }
                 pbLevel.Value = 0;
                 // UIコントロールを有効化
-                EnabledControls(enabled: true);
+                EnabledControls(enabled: true,mode);
             };
 
             pbLevel.Maximum = 60;
