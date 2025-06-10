@@ -155,6 +155,7 @@
             button2.TabIndex = 14;
             button2.Text = "■";
             button2.UseVisualStyleBackColor = true;
+            button2.Click += button2_Click;
             // 
             // btnPlay
             // 
@@ -342,12 +343,12 @@
             Controls.Add(groupBox2);
             Font = new Font("游ゴシック", 8.25F);
             Icon = (Icon)resources.GetObject("$this.Icon");
-            MaximizeBox = false;
-            MinimizeBox = false;
+            MaximumSize = new Size(554, 424);
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "USBデバイス録音";
             Load += Form1_Load;
+            Resize += Form1_Resize;
             groupBox2.ResumeLayout(false);
             groupBox2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)trkVolume).EndInit();

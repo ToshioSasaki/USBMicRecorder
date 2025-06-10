@@ -146,7 +146,7 @@ namespace USBMicRecorder
                     return;
                 }
                 lblCapture.Visible = true;
-                StartCapture(levelOnly: true,AudioMode.ProductionMode);
+                StartCapture(levelOnly: true, AudioMode.ProductionMode);
                 btnRecord.Text = "録音停止";
                 isRecording = true;
             }
@@ -168,7 +168,7 @@ namespace USBMicRecorder
         {
             if (!isTesting)
             {
-                StartCapture(levelOnly: true,AudioMode.TestMode);
+                StartCapture(levelOnly: true, AudioMode.TestMode);
                 btnTest.Text = "テスト停止";
                 isTesting = true;
             }
@@ -197,7 +197,27 @@ namespace USBMicRecorder
         /// <param name="e"></param>
         private void btnPlay_Click(object sender, EventArgs e)
         {
-            PlayMp3();
+            PlayMp3(AudioMode.PlayMode);
+        }
+
+        /// <summary>
+        /// 再生停止ボタンのクリックイベントハンドラです。
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void button2_Click(object sender, EventArgs e)
+        {
+            StopMp3();
+        }
+
+        /// <summary>
+        /// フォームのリサイズイベントハンドラです。
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            this.StartPosition = FormStartPosition.CenterScreen; // フォームの位置を中央に設定
         }
 
         /// <summary>
@@ -213,13 +233,13 @@ namespace USBMicRecorder
             audioFile?.Dispose();
             audioFile = null;
 
-            EnabledPlaybackUI(true);
+            UnlockConrols();
         }
 
         /// <summary>
         /// MP3ファイルを再生します。
         /// </summary>
-        private void PlayMp3()
+        private void PlayMp3(AudioMode mode)
         {
             if (!File.Exists(txtPlayPath.Text))
             {
@@ -230,7 +250,7 @@ namespace USBMicRecorder
             try
             {
                 playPath = txtPlayPath.Text;
-                EnabledPlaybackUI(enabled: false); // 再生中はUIを無効化
+                EnabledControls(enabled: false, mode); // 再生中はUIを無効化
 
                 // 再生ファイル読み込み
                 using (var reader = new MediaFoundationReader(playPath)) // IDE0017: オブジェクトの初期化を簡素化
@@ -253,19 +273,43 @@ namespace USBMicRecorder
             catch (Exception ex)
             {
                 MessageBox.Show("再生エラー: " + ex.Message);
-                EnabledPlaybackUI(true);
+                UnlockConrols();
             }
         }
 
         /// <summary>
-        /// 再生UIの有効/無効を切り替えます。
+        /// MP3の再生を停止します。
         /// </summary>
-        /// <param name="enabled">True:有効、False：無効</param>
-        private void EnabledPlaybackUI(bool enabled)
+        private void StopMp3()
         {
-            cbPlayDevice.Enabled = enabled; //再生中は無効化
-            txtPlayPath.Enabled = enabled;  //再生中はパス変更不可
-            btnPlayDir.Enabled = enabled;   //再生中はボタン押下不可
+            try
+            {
+                if (outputDevice != null)
+                {
+                    // イベントを外すことで多重呼び出しを防止
+                    outputDevice.PlaybackStopped -= OnPlaybackStopped;
+
+                    // 再生を停止
+                    outputDevice.Stop();
+
+                    // リソース解放
+                    outputDevice.Dispose();
+                    outputDevice = null;
+                }
+
+                if (audioFile != null)
+                {
+                    audioFile.Dispose();
+                    audioFile = null;
+                }
+
+                // UI を元に戻す
+                UnlockConrols();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("再生停止エラー: " + ex.Message);
+            }
         }
 
 
@@ -281,8 +325,32 @@ namespace USBMicRecorder
             cbDevices.Enabled = enabled;      // 録音中はデバイス変更不可
             btnBrowse.Enabled = enabled;      // 録音中は保存先変更不可
             txtSavePath.Enabled = enabled;    // 録音中は保存先変更不可
-            btnTest.Enabled = mode == AudioMode.TestMode;
-            btnRecord.Enabled = mode == AudioMode.ProductionMode;
+            if (AudioMode.PlayMode != mode)
+            {
+                // 再生以外はテストボタン・録音ボタンのUIを無効化
+                btnTest.Enabled = mode == AudioMode.TestMode;
+                btnRecord.Enabled = mode == AudioMode.ProductionMode;
+            }
+            // 再生関連のUI更新
+            cbPlayDevice.Enabled = enabled;    //再生は無効化
+            txtPlayPath.Enabled = enabled;     //再生はパス変更不可
+            btnPlayDir.Enabled = enabled;      //再生はボタン押下不可
+        }
+
+        /// <summary>
+        /// 録音/再生コントロールをEnable=true(アンロック)します。
+        /// </summary>
+        private void UnlockConrols()
+        {
+            tbVolume.Enabled = true;       // ボリューム有効化
+            cbDevices.Enabled = true;      // デバイス有効化
+            btnBrowse.Enabled = true;      // 保存先ボタン有効化
+            txtSavePath.Enabled = true;    // 保存先有効化
+            btnTest.Enabled = true;        // テスト録音ボタンを有効化 
+            btnRecord.Enabled = true;      // 録音ボタンを有効化
+            cbPlayDevice.Enabled = true;   // 再生は有効化
+            txtPlayPath.Enabled = true;    // 再生はパス有効化
+            btnPlayDir.Enabled = true;     // 再生はボタン有効化
         }
 
         /// <summary>
@@ -290,8 +358,9 @@ namespace USBMicRecorder
         /// </summary>
         private enum AudioMode
         {
-            TestMode,
-            ProductionMode
+            TestMode,           // テスト録音モード
+            PlayMode,           // 再生モード
+            ProductionMode,     // 本番録音モード
         }
 
         /// <summary>
@@ -315,7 +384,7 @@ namespace USBMicRecorder
             }
 
             // UIコントロールを無効化
-            EnabledControls(enabled: false,mode);
+            EnabledControls(enabled: false, mode);
 
             // 録音開始
             capture.DataAvailable += (s, e) =>
@@ -413,7 +482,7 @@ namespace USBMicRecorder
                 }
                 pbLevel.Value = 0;
                 // UIコントロールを有効化
-                EnabledControls(enabled: true,mode);
+                UnlockConrols();
             };
 
             pbLevel.Maximum = 60;
